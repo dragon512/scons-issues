@@ -1,0 +1,88 @@
+import SCons.Script
+
+# this is a simple example to show the variable nodes don't have scanners working
+# as part of a different note.. it would be useful for values to have content that
+# is independent of the nodes name.
+# ideally Value would be very useful to help pass build state to connect the dots
+# this can be done via writing out to a file instead, but in certains cases this
+# seems wasteful.
+# a sill example that would be useful that I should make is a value node
+# with a scanner that updates the value when the time is changed via some boundary
+# as minute. This could be done with a file, but could be cleaner as a Value
+# Values need to have two fixes however for this work
+# 1) scanners have to work
+# 2) there is an issue with get_content() when a value depends on a binary.
+#    I have PR https://github.com/SCons/scons/pull/3384 to fix this case
+
+
+def write_value(target, source, env):
+    print("Value builder ------")
+    print(" Build - Source", source[0], source[0].get_contents())
+    print(" Build - Target", target[0], target[0].get_contents())
+    target[0].write(source[0].get_contents())
+    print(" Build - Target result", target[0], target[0].get_contents())
+
+def write_value2(target, source, env):
+    print("Value builder two------")
+    print(" Build - Source", source[0], source[0].get_contents())
+    print(" Build - Target", target[0], target[0].get_contents())
+    target[0].write(source[0].get_contents())
+    print(" Build - Target result", target[0], target[0].get_contents())
+
+def write_file(target, source, env):
+    print("Write file builder ------")
+    print(" Build - Source", source[0], source[0].get_contents())
+    print(" Build - Target", target[0], target[0].get_contents())
+    with open(target[0].get_path(), 'w') as outfile:
+        outfile.write("This is some data")
+
+
+def source_scanner(node, env, path, builder):
+    print("Source scanner node=", node, "builder =", builder)
+    return []
+
+
+def target_scanner(node, env, path, builder):
+    print("Target scanner node=", node, "builder =", builder)
+    return []
+
+
+env = DefaultEnvironment()
+
+env["BUILDERS"]["mybldv"] = Builder(
+    action=Action(write_value),
+    target_factory=SCons.Node.Python.Value,
+    source_factory=SCons.Node.Python.Value,
+    target_scanner=Scanner(lambda node, env, path: target_scanner(node, env, path, "mybldv")),
+    source_scanner=Scanner(lambda node, env, path: source_scanner(node, env, path, "mybldv"))
+)
+
+env["BUILDERS"]["mybldv2"] = Builder(
+    action=Action(write_value2),
+    target_factory=SCons.Node.Python.Value,
+    source_factory=env.File,
+    target_scanner=Scanner(lambda node, env, path: target_scanner(node, env, path, "mybldv2")),
+    source_scanner=Scanner(lambda node, env, path: source_scanner(node, env, path, "mybldv2"))
+)
+
+env["BUILDERS"]["mybld"] = Builder(
+    action=Action(write_file),
+    target_factory=env.File,
+    source_factory=env.File,
+    target_scanner=Scanner(lambda node, env, path: target_scanner(node, env, path, "mybldf")),
+    source_scanner=Scanner(lambda node, env, path: source_scanner(node, env, path, "mybldf"))
+)
+
+env["BUILDERS"]["mybldf"] = Builder(
+    action=Action(write_file),
+    target_factory=env.File,
+    source_factory=SCons.Node.Python.Value,
+    target_scanner=Scanner(lambda node, env, path: target_scanner(node, env, path, "mybldf")),
+    source_scanner=Scanner(lambda node, env, path: source_scanner(node, env, path, "mybldf"))
+)
+
+out = env.mybldv(env.Value("out-value"), env.Value("in-value", "some value"))
+out = env.mybldf("out.txt", out)
+
+out = env.mybldv2(env.Value("out-value2"), env.mybld("in.txt","some_source.txt"))
+out = env.mybldf("out2.txt", out)

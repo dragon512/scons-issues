@@ -1,0 +1,41 @@
+
+# this point of this sample is to show the feature/bug in SCons
+# in which target are not rebuilt if they are modifies because 
+# the nsig is not used. This is not a bug, but at the moment 
+# expecetd behavior that is often not expected by the user
+# this is shown when the user built the target and then modifies 
+# the fail manually. It is common for the user to expect build the 
+# file again to have the build system noticed the file is:
+# 1) newer than the makefile ( ie touch, so it would be rebuilt
+#    given make logic)
+# 2) the MD5 of the file is different form the last time it built
+# 
+# this is not the case, Scons only rebuilds if the file is deleted
+# the proposal is that scons should do a nsig decider check on the node itself
+# to prevent the build from getting in a inconsistent incremental state that 
+# cannot be fixed without cleaning and/or rebuilding everything
+#
+
+def write_file(target,source,env):
+    with open(target[0].get_path(), 'w') as outfile:        
+        outfile.write("This is some data")
+
+env = DefaultEnvironment()
+
+env["BUILDERS"]["mybld"]=Builder(
+    action=Action(write_file),
+    target_factory=env.File,
+    source_factory=env.File,    
+)
+
+out = env.mybld("out.txt","some_source.txt")
+
+info = out[0].get_stored_info()
+try:
+    info.ninfo.csig
+    print("------ out.txt -------------------------------")
+    print("prev csig=",info.ninfo.csig)
+    print("curr csig=",out[0].get_content_hash())
+    print("----------------------------------------------")
+except:
+    pass

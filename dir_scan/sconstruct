@@ -1,0 +1,37 @@
+import os
+
+# this is a simple example to show the directory nodes don't have target scanners working
+# we might want to fix this....
+
+
+def write_file(target, source, env):
+    with open(os.path.join(target[0].get_path(), "out.txt"), 'w') as outfile:
+        outfile.write("This is some data")
+
+
+def emit(target, source, env):
+    return [env.Dir("outdir"), source]
+
+
+def source_scanner(node, env, path, builder):
+    print("Source scanner node=", node, "builder =", builder)
+    return []
+
+
+def target_scanner(node, env, path, builder):
+    print("Target scanner node=", node, "builder =", builder)
+    return []
+
+
+env = DefaultEnvironment()
+
+env["BUILDERS"]["mybld"] = Builder(
+    action=Action(write_file),
+    target_factory=env.Dir,
+    source_factory=env.File,
+    emit=emit,
+    target_scanner=Scanner(lambda node, env, path: target_scanner(node, env, path, "mybld")),
+    source_scanner=Scanner(lambda node, env, path: source_scanner(node, env, path, "mybld"))
+)
+
+out = env.mybld("out.txt", "some_source.txt")
