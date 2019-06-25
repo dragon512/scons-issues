@@ -5,7 +5,9 @@ import os
 
 
 def write_file(target, source, env):
-    with open(os.path.join(target[0].get_path(), "out.txt"), 'w') as outfile:
+    path = target[0].get_path()
+    os.makedirs(path)
+    with open(os.path.join(path, "out.txt"), 'w') as outfile:
         outfile.write("This is some data")
 
 
@@ -34,4 +36,4 @@ env["BUILDERS"]["mybld"] = Builder(
     source_scanner=Scanner(lambda node, env, path: source_scanner(node, env, path, "mybld"))
 )
 
-out = env.mybld("out.txt", "some_source.txt")
+out = env.mybld("outdir", "some_source.txt")
